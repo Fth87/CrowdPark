@@ -11,6 +11,7 @@ bun run dev
 ```
 
 Isi `PUBLIC_SUPABASE_URL` dan `PUBLIC_SUPABASE_PUBLISHABLE_KEY` dari Supabase Dashboard.
+`PUBLIC_OSM_TILE_URL` bersifat opsional dan menggunakan tile standar OpenStreetMap secara default.
 Gunakan publishable key untuk aplikasi web; jangan masukkan secret key ke kode client atau `.env` yang dibagikan.
 
 ## Verifikasi

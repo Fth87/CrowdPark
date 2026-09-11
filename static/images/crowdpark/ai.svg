@@ -1,0 +1,14 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="ai">
+<mask id="mask0_0_17" style="mask-type:alpha" maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24">
+<rect id="Bounding box" width="24" height="24" fill="#D9D9D9"/>
+</mask>
+<g mask="url(#mask0_0_17)">
+<g id="Vector">
+<path d="M15.7756 5.7757L16.4308 3.8103H17.5692L18.2243 5.7757L20.1897 6.43083V7.56925L18.2243 8.22438L17.5692 10.1898H16.4308L15.7756 8.22438L13.8102 7.56925V6.43083L15.7756 5.7757Z" fill="#1C1B1F"/>
+<path d="M18 12V19H16V12H18Z" fill="#1C1B1F"/>
+<path fill-rule="evenodd" clip-rule="evenodd" d="M7.33728 6.00004H10.6627L14.0329 19H11.9668L11.1891 16H6.81082L6.03304 19H3.96692L7.33728 6.00004ZM7.32934 14H10.6706L9.11505 8.00004H8.88489L7.32934 14Z" fill="#1C1B1F"/>
+</g>
+</g>
+</g>
+</svg>
