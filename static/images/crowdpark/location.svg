@@ -1,0 +1,12 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="135.517" height="135.517" viewBox="0 0 135.517 135.517" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Group 1">
+<path id="Polygon 1" d="M111.747 43.9886L66.3494 117.739L25.1788 41.5481L111.747 43.9886Z" fill="url(#paint0_linear_0_44)"/>
+<circle id="Ellipse 1" cx="102.5" cy="48.5" r="10" fill="#FFAC47" stroke="white"/>
+</g>
+<defs>
+<linearGradient id="paint0_linear_0_44" x1="111.747" y1="43.9886" x2="66.5699" y2="65.559" gradientUnits="userSpaceOnUse">
+<stop stop-color="#FFAC47"/>
+<stop offset="1" stop-color="#FFC784" stop-opacity="0"/>
+</linearGradient>
+</defs>
+</svg>
