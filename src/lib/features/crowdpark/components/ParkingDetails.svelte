@@ -9,13 +9,14 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Separator } from '$lib/components/ui/separator';
 	import { facilities, parkingSpot as staticSpot } from '../data';
-	import { fetchParkingEstimate } from '../api';
+	import { fetchParkingEstimate, fetchReviews } from '../api';
 	import type { ParkingSpot } from '../types';
 
 	let { sheet = false, id = undefined }: { sheet?: boolean; id?: string } = $props();
 
 	let spot = $state<ParkingSpot>(staticSpot);
 	let lastUpdated = $state<Date | null>(null);
+	let dbReviews = $state<any[]>([]);
 
 	$effect(() => {
 		if (id) {
@@ -24,6 +25,9 @@
 					spot = data;
 					lastUpdated = new Date();
 				}
+			});
+			fetchReviews(Number(id)).then((data) => {
+				dbReviews = data;
 			});
 		}
 	});
@@ -51,18 +55,18 @@
 		{ label: '▣　Rate', value: spot.rate, detail: 'Flat hour' },
 		{ label: '♙　Walk', value: `${spot.walkMinutes} mnt`, detail: 'walk to the station' }
 	]);
-	const reviews = [
-		{
-			name: 'Budi S.',
-			when: '2 jam lalu',
-			text: 'Jukirnya solutif, motor ditaruh rapi. Jalan ke pintu stasiun cuma 3 menit beneran.'
-		},
-		{
-			name: 'Rian Pratama',
-			when: 'Kemarin',
-			text: 'Tempat teduh beratap aman dari hujan, bayar pakai QRIS lancar.'
-		}
-	];
+	const avgRating = $derived(
+		dbReviews.length > 0
+			? (dbReviews.reduce((sum, r) => sum + r.rating, 0) / dbReviews.length).toFixed(1)
+			: '0.0'
+	);
+	
+	const formatRelativeTime = (dateStr: string) => {
+		const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+		if (diff < 3600) return `${Math.floor(diff / 60)} menit lalu`;
+		if (diff < 86400) return `${Math.floor(diff / 3600)} jam lalu`;
+		return `${Math.floor(diff / 86400)} hari lalu`;
+	};
 </script>
 
 <Card.Root
@@ -137,27 +141,30 @@
 		<Card.Root size="sm" class="bg-secondary"
 			><Card.Header class="flex-row items-center"
 				><div class="border-r pr-5 text-center">
-					<Card.Title class="text-4xl">4.5</Card.Title>
-					<p class="text-rating">★★★★★</p>
-					<Card.Description>42 ulasan</Card.Description>
+					<Card.Title class="text-4xl">{avgRating}</Card.Title>
+					<p class="text-rating">{'★'.repeat(Math.round(Number(avgRating)))}{'☆'.repeat(5 - Math.round(Number(avgRating)))}</p>
+					<Card.Description>{dbReviews.length} ulasan</Card.Description>
 				</div>
 				<div class="flex flex-1 flex-col gap-1 text-xs">
-					{#each [5, 4, 3, 2] as n}<div class="flex items-center gap-2">
+					{#each [5, 4, 3, 2, 1] as n}
+						{@const count = dbReviews.filter((r) => Math.round(r.rating) === n).length}
+						{@const pct = dbReviews.length ? (count / dbReviews.length) * 100 : 0}
+						<div class="flex items-center gap-2">
 							<span>{n}</span><span class="h-1.5 flex-1 rounded-full bg-border"
-								><i class="block h-full rounded-full bg-primary" style:width={`${(n - 1) * 22}%`}
+								><i class="block h-full rounded-full bg-primary" style:width={`${pct}%`}
 								></i></span
 							>
 						</div>{/each}
 				</div></Card.Header
 			></Card.Root
 		>
-		{#each reviews as review (review.name)}<Card.Root size="sm" class="bg-secondary"
+		{#each dbReviews as review (review.id)}<Card.Root size="sm" class="bg-secondary"
 				><Card.Header class="flex-row justify-between"
-					><Card.Title>{review.name}</Card.Title><Card.Description>{review.when}</Card.Description
+					><Card.Title>{review.nama_reviewer}</Card.Title><Card.Description>{formatRelativeTime(review.created_at)}</Card.Description
 					></Card.Header
 				><Card.Content
-					><p class="text-rating">★★★★★</p>
-					<p class="mt-2 text-muted-foreground">{review.text}</p></Card.Content
+					><p class="text-rating">{'★'.repeat(review.rating)}{'☆'.repeat(5 - review.rating)}</p>
+					<p class="mt-2 text-muted-foreground">{review.ulasan}</p></Card.Content
 				></Card.Root
 			>{/each}
 	</Card.Content>

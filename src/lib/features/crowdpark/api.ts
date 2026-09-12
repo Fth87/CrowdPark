@@ -267,3 +267,21 @@ export const setActiveVehicle = async (vehicleId: number) => {
 		.update({ is_active: true })
 		.eq('id', vehicleId);
 };
+// ─────────────────────────────────────────────
+// REVIEWS
+// ─────────────────────────────────────────────
+
+export const fetchReviews = async (lotId: number) => {
+	try {
+		const { data, error } = await getSupabase()
+			.from('parking_reviews')
+			.select('*')
+			.eq('lot_id', lotId)
+			.order('created_at', { ascending: false });
+		if (error) throw error;
+		return data ?? [];
+	} catch (err) {
+		console.error('[fetchReviews]', err);
+		return [];
+	}
+};
