@@ -7,12 +7,14 @@
 	import * as Card from '$lib/components/ui/card';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
-	import { facilities, parkingSpot as spot } from '../data';
+	import { facilities, parkingSpot as staticSpot } from '../data';
+	import type { ParkingSpot } from '../types';
 	let {
 		rank,
 		saved = false,
-		detailed = false
-	}: { rank?: number; saved?: boolean; detailed?: boolean } = $props();
+		detailed = false,
+		spot = staticSpot
+	}: { rank?: number; saved?: boolean; detailed?: boolean; spot?: ParkingSpot } = $props();
 </script>
 
 <Card.Root size="sm" class="tracking-[-0.04em] [--card-spacing:--spacing(4)]">
@@ -48,7 +50,11 @@
 			</p>{/if}
 	</Card.Content>
 	<Card.Footer class="grid grid-cols-2 gap-3">
-		<Button href="/maps?spot=1"><NavigationIcon />Navigate Here</Button>
+		<Button
+			href={`https://www.google.com/maps/dir/?api=1&origin=-7.7869,110.3658&waypoints=${spot.lat},${spot.lng}&destination=Stasiun+Yogyakarta`}
+			target="_blank"
+			rel="noopener noreferrer"
+		><NavigationIcon />Navigate Here</Button>
 		<Button href="/parking/{spot.id}" variant="secondary"><InfoIcon />View Details</Button>
 	</Card.Footer>
 </Card.Root>

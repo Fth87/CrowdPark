@@ -3,7 +3,9 @@
 	import { onMount } from 'svelte';
 	import type { Map } from 'leaflet';
 	import { cn } from '$lib/utils';
-	import { currentLocation, parkingSpots } from '../data';
+	import { fetchParkingLots } from '../api';
+	import { currentLocation } from '../data';
+	import type { MapLocation } from '../types';
 
 	let {
 		mode = 'parking',
@@ -13,75 +15,84 @@
 	}: {
 		mode?: 'parking' | 'location';
 		interactive?: boolean;
-		onselect?: () => void;
+		onselect?: (spot: MapLocation) => void;
 		class?: string;
 	} = $props();
 
 	let container: HTMLDivElement;
 	let map: Map | undefined;
+	let dynamicSpots = $state<MapLocation[]>([]);
 
 	onMount(() => {
 		let active = true;
 		let resizeObserver: ResizeObserver | undefined;
 
-		void import('leaflet').then((L) => {
-			if (!active || !container) return;
-			const center = mode === 'parking' ? parkingSpots[0] : currentLocation;
-			map = L.map(container, {
-				zoomControl: interactive,
-				dragging: interactive,
-				touchZoom: interactive,
-				doubleClickZoom: interactive,
-				scrollWheelZoom: interactive,
-				boxZoom: interactive,
-				keyboard: interactive
-			}).setView([center.lat, center.lng], mode === 'parking' ? 16 : 15);
-
-			L.tileLayer(env.PUBLIC_OSM_TILE_URL || 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-				maxZoom: 19,
-				attribution:
-					'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-			}).addTo(map);
-
-			if (mode === 'location') {
-				L.marker([currentLocation.lat, currentLocation.lng], {
-					icon: L.divIcon({
-						className: 'crowdpark-marker-shell',
-						html: '<span class="crowdpark-location-marker"></span>',
-						iconSize: [28, 28],
-						iconAnchor: [14, 14]
-					}),
-					title: 'Current location',
-					alt: 'Current location'
-				}).addTo(map);
-			} else {
-				for (const spot of parkingSpots) {
-					const marker = L.marker([spot.lat, spot.lng], {
-						icon: L.divIcon({
-							className: 'crowdpark-marker-shell',
-							html: spot.primary
-								? '<span class="crowdpark-parking-marker">P</span>'
-								: `<span class="crowdpark-dot crowdpark-dot--${spot.status}"></span>`,
-							iconSize: spot.primary ? [44, 44] : [20, 20],
-							iconAnchor: spot.primary ? [22, 22] : [10, 10]
-						}),
-						title: spot.primary ? 'Parkir Timur Lempuyangan' : `${spot.slots} slots open`,
-						alt: spot.primary ? 'Parkir Timur Lempuyangan' : `${spot.slots} slots open`
-					}).addTo(map);
-
-					marker.bindTooltip(`~${spot.slots} Slot open`, {
-						permanent: true,
-						direction: 'top',
-						offset: [0, spot.primary ? -18 : -8],
-						className: 'crowdpark-map-tooltip'
-					});
-					if (spot.primary) marker.on('click', () => onselect?.());
-				}
+		const initMap = async () => {
+			if (mode === 'parking') {
+				dynamicSpots = await fetchParkingLots();
 			}
 
-			resizeObserver = new ResizeObserver(() => map?.invalidateSize({ pan: false }));
-			resizeObserver.observe(container);
-		});
+			void import('leaflet').then((L) => {
+				if (!active || !container) return;
+				const center = mode === 'parking' && dynamicSpots.length > 0 ? dynamicSpots[0] : currentLocation;
+				map = L.map(container, {
+					zoomControl: interactive,
+					dragging: interactive,
+					touchZoom: interactive,
+					doubleClickZoom: interactive,
+					scrollWheelZoom: interactive,
+					boxZoom: interactive,
+					keyboard: interactive
+				}).setView([center.lat, center.lng], mode === 'parking' ? 16 : 15);
+
+				L.tileLayer(env.PUBLIC_OSM_TILE_URL || 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+					maxZoom: 19,
+					attribution:
+						'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+				}).addTo(map);
+
+				if (mode === 'location') {
+					L.marker([currentLocation.lat, currentLocation.lng], {
+						icon: L.divIcon({
+							className: 'crowdpark-marker-shell',
+							html: '<span class="crowdpark-location-marker"></span>',
+							iconSize: [28, 28],
+							iconAnchor: [14, 14]
+						}),
+						title: 'Current location',
+						alt: 'Current location'
+					}).addTo(map);
+				} else {
+					for (const spot of dynamicSpots) {
+						const marker = L.marker([spot.lat, spot.lng], {
+							icon: L.divIcon({
+								className: 'crowdpark-marker-shell',
+								html: spot.primary
+									? '<span class="crowdpark-parking-marker">P</span>'
+									: `<span class="crowdpark-dot crowdpark-dot--${spot.status}"></span>`,
+								iconSize: spot.primary ? [44, 44] : [20, 20],
+								iconAnchor: spot.primary ? [22, 22] : [10, 10]
+							}),
+							title: spot.primary ? 'Parkir Timur Lempuyangan' : `${spot.slots} slots open`,
+							alt: spot.primary ? 'Parkir Timur Lempuyangan' : `${spot.slots} slots open`
+						}).addTo(map);
+
+						marker.bindTooltip(`~${spot.slots} Slot open`, {
+							permanent: true,
+							direction: 'top',
+							offset: [0, spot.primary ? -18 : -8],
+							className: 'crowdpark-map-tooltip'
+						});
+						if (spot.primary) marker.on('click', () => onselect?.(spot));
+					}
+				}
+
+				resizeObserver = new ResizeObserver(() => map?.invalidateSize({ pan: false }));
+				resizeObserver.observe(container);
+			});
+		};
+
+		initMap();
 
 		return () => {
 			active = false;

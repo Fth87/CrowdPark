@@ -11,6 +11,7 @@
 	let query = $state('Stasiun Yogyakarta');
 	let vehicle = $state('motorcycle');
 	let selected = $state(page.url.searchParams.has('spot'));
+	let activeId = $state<string | undefined>(undefined);
 	const isDesktop = new MediaQuery('(min-width: 768px)');
 </script>
 
@@ -19,7 +20,7 @@
 <MobileHeader />
 <main class="relative h-[calc(100dvh-78px)] overflow-hidden md:h-screen md:pt-16">
 	<div class="absolute inset-x-0 top-[146px] bottom-0 md:top-16 md:left-[438px]">
-		<MapCanvas onselect={() => (selected = true)} />
+		<MapCanvas onselect={(spot) => { selected = true; activeId = spot.id?.toString(); }} />
 	</div>
 	<aside
 		class="absolute top-0 right-0 left-0 z-10 bg-background px-4 pb-5 md:top-16 md:right-auto md:bottom-8 md:w-[438px] md:px-10 md:pt-8"
@@ -35,7 +36,7 @@
 	</aside>
 	{#if isDesktop.current}
 		{#if selected}<div class="absolute top-16 bottom-8 left-0 z-30 w-[438px] overflow-y-auto">
-				<ParkingDetails sheet />
+				<ParkingDetails sheet id={activeId} />
 			</div>{/if}
 	{:else}
 		<Drawer.Root bind:open={selected}>
@@ -45,7 +46,7 @@
 						>Parking availability, route, facilities, and reviews.</Drawer.Description
 					></Drawer.Header
 				>
-				<div class="overflow-y-auto"><ParkingDetails /></div>
+				<div class="overflow-y-auto"><ParkingDetails id={activeId} /></div>
 			</Drawer.Content>
 		</Drawer.Root>
 	{/if}

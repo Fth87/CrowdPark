@@ -13,6 +13,8 @@ export type ParkingSpot = {
 	id: string;
 	name: string;
 	address: string;
+	lat: number;
+	lng: number;
 	openSlots: number;
 	totalSlots: number;
 	rate: string;
@@ -25,6 +27,7 @@ export type ParkingSpot = {
 };
 
 export type MapLocation = {
+	id?: string;
 	lat: number;
 	lng: number;
 	slots?: number;

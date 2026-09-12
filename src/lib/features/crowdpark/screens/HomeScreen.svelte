@@ -10,11 +10,13 @@
 	import VehicleToggle from '../components/VehicleToggle.svelte';
 	import { station } from '../data';
 
+	import { goto } from '$app/navigation';
+
 	let query = $state('');
 	let vehicle = $state('motorcycle');
 	let searchOpen = $state(false);
 	const submit = () => {
-		if (query.trim()) window.location.href = '/maps?spot=1';
+		if (query.trim()) goto(`/maps?q=${encodeURIComponent(query)}&vehicle=${vehicle}`);
 	};
 	const selectStation = () => {
 		query = station.name;
@@ -67,7 +69,10 @@
 					</p></Card.Footer
 				></Card.Root
 			>
-			<Button href="/maps?spot=1" size="lg" class="mt-auto h-14 rounded-[22px] text-base"
+			<Button
+				onclick={submit}
+				size="lg"
+				class="mt-auto h-14 rounded-[22px] text-base"
 				>Find Parking Spot</Button
 			>
 		{/if}

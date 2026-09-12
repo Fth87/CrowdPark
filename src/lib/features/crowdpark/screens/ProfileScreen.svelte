@@ -17,6 +17,20 @@
 	import { Separator } from '$lib/components/ui/separator';
 	import AppChrome from '../components/AppChrome.svelte';
 	import MobileHeader from '../components/MobileHeader.svelte';
+	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
+	import { signOut } from '$lib/features/crowdpark/api';
+
+	// Read real user from Supabase session if available, otherwise fall back to placeholder
+	const claims = $derived((page.data as any)?.claims);
+	const userEmail = $derived(claims?.email ?? 'bebek@example.com');
+	const userName = $derived(claims?.user_metadata?.full_name ?? userEmail.split('@')[0]);
+	const userAvatar = $derived(claims?.user_metadata?.avatar_url ?? null);
+
+	const logout = async () => {
+		await signOut();
+		goto('/login');
+	};
 
 	const settings = [
 		{
@@ -49,12 +63,12 @@
 	<Card.Root class="col-span-2 items-center [--card-spacing:--spacing(5)]"
 		><Card.Header class="items-center"
 			><Avatar.Root class="size-20 border-4 border-primary shadow-md"
-				><Avatar.Image src="/images/crowdpark/profile.png" alt="Profile of bebek" /><Avatar.Fallback
-					>BK</Avatar.Fallback
+				><Avatar.Image src={userAvatar ?? '/images/crowdpark/profile.png'} alt="Profile photo" /><Avatar.Fallback
+					>{userName.slice(0, 2).toUpperCase()}</Avatar.Fallback
 				><Avatar.Badge class="bg-primary"><PencilIcon /></Avatar.Badge></Avatar.Root
-			><Card.Title class="mt-3 text-xl">bebek</Card.Title><Card.Description
+			><Card.Title class="mt-3 text-xl">{userName}</Card.Title><Card.Description
 				class="flex max-w-full flex-wrap items-center justify-center gap-2"
-				><span class="whitespace-nowrap">bebek@example.com</span><Badge variant="secondary"
+				><span class="whitespace-nowrap">{userEmail}</span><Badge variant="secondary"
 					>Verified</Badge
 				></Card.Description
 			></Card.Header
@@ -116,7 +130,7 @@
 			></Card.Root
 		>
 	</div>
-	<Button variant="destructive" class="col-span-2 w-full"><LogOutIcon />Log Out</Button>
+	<Button variant="destructive" class="col-span-2 w-full" onclick={logout}><LogOutIcon />Log Out</Button>
 	<p class="col-span-2 text-center text-[10px] text-muted-foreground">
 		CrowdPark AI v2.4 · Yogyakarta Transit Hub<br />Real-time Smart Commuter Assistance
 	</p>

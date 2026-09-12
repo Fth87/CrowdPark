@@ -8,9 +8,23 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import { Separator } from '$lib/components/ui/separator';
-	import { facilities, parkingSpot as spot } from '../data';
-	let { sheet = false }: { sheet?: boolean } = $props();
-	const metrics = [
+	import { facilities, parkingSpot as staticSpot } from '../data';
+	import { fetchParkingEstimate } from '../api';
+	import type { ParkingSpot } from '../types';
+
+	let { sheet = false, id = undefined }: { sheet?: boolean; id?: string } = $props();
+	
+	let spot = $state<ParkingSpot>(staticSpot);
+	
+	$effect(() => {
+		if (id) {
+			fetchParkingEstimate(Number(id)).then((data) => {
+				if (data) spot = data;
+			});
+		}
+	});
+
+	let metrics = $derived([
 		{
 			label: 'P　Free slot',
 			value: `~${spot.openSlots} open`,
@@ -18,7 +32,7 @@
 		},
 		{ label: '▣　Rate', value: spot.rate, detail: 'Flat hour' },
 		{ label: '♙　Walk', value: `${spot.walkMinutes} mnt`, detail: 'walk to the station' }
-	];
+	]);
 	const reviews = [
 		{
 			name: 'Budi S.',
@@ -73,7 +87,9 @@
 		</div>
 		<div class="flex gap-3">
 			<Button
-				href="https://www.google.com/maps/dir/?api=1&destination=Stasiun+Lempuyangan"
+				href={`https://www.google.com/maps/dir/?api=1&origin=-7.7869,110.3658&waypoints=${spot.lat},${spot.lng}&destination=Stasiun+Yogyakarta`}
+				target="_blank"
+				rel="noopener noreferrer"
 				class="h-12 flex-1"><NavigationIcon />Go there</Button
 			><Button
 				variant="secondary"

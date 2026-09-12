@@ -17,6 +17,8 @@ export const parkingSpot: ParkingSpot = {
 	id: 'parkir-timur-lempuyangan',
 	name: 'Parkir Timur Lempuyangan',
 	address: 'Jl. Perwakilan, Yogyakarta',
+	lat: -7.7908,
+	lng: 110.3667,
 	openSlots: 164,
 	totalSlots: 250,
 	rate: 'Rp 3.000',
