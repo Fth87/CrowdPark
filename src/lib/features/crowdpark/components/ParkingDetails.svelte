@@ -13,16 +13,34 @@
 	import type { ParkingSpot } from '../types';
 
 	let { sheet = false, id = undefined }: { sheet?: boolean; id?: string } = $props();
-	
+
 	let spot = $state<ParkingSpot>(staticSpot);
-	
+	let lastUpdated = $state<Date | null>(null);
+
 	$effect(() => {
 		if (id) {
 			fetchParkingEstimate(Number(id)).then((data) => {
-				if (data) spot = data;
+				if (data) {
+					spot = data;
+					lastUpdated = new Date();
+				}
 			});
 		}
 	});
+
+	const syncText = $derived(() => {
+		if (!lastUpdated) return 'Belum diperbarui';
+		const diff = Math.floor((Date.now() - lastUpdated.getTime()) / 1000);
+		if (diff < 60) return `${diff}d lalu`;
+		if (diff < 3600) return `${Math.floor(diff / 60)}m lalu`;
+		return `${Math.floor(diff / 3600)}j lalu`;
+	});
+
+	const aiInsightText = $derived(
+		spot.openSlots != null
+			? `${spot.name} saat ini tersisa ~${spot.openSlots} dari ${spot.totalSlots} slot (${spot.confidence}% confidence). Jarak ke pintu stasiun ${spot.walkMinutes} menit jalan kaki.`
+			: 'Data estimasi belum tersedia untuk lokasi ini.'
+	);
 
 	let metrics = $derived([
 		{
@@ -71,8 +89,7 @@
 	<Card.Content class="flex flex-col gap-4">
 		<Alert.Root
 			><SparklesIcon /><Alert.Title>AI Insight</Alert.Title><Alert.Description
-				>The most convenient walking access from the Malioboro direction when the Main Parking lot
-				at Tugu Station is full.</Alert.Description
+				>{aiInsightText}</Alert.Description
 			></Alert.Root
 		>
 		<div class="grid grid-cols-3 gap-3">
@@ -109,7 +126,7 @@
 				{#each facilities as item (item)}<Badge variant="secondary">{item}</Badge>{/each}
 			</div>
 			<p class="mt-2 text-xs text-muted-foreground">
-				<span class="text-success">▣</span> Confidence: {spot.confidence}%　 Sync 2m ago
+				<span class="text-success">▣</span> Confidence: {spot.confidence}%　 Sync {syncText()}
 			</p>
 		</div>
 		<Separator />
