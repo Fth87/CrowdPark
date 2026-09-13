@@ -22,4 +22,4 @@ bun run check
 bun run build
 ```
 
-Database type placeholder di `src/lib/database.types.ts` perlu diganti dengan type hasil generate setelah schema Supabase dibuat.
+Database type placeholder di `src/lib/database.types.ts` perlu diganti dengan type hasil generate setelah schema Supabase dibuat
