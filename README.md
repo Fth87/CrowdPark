@@ -1,6 +1,6 @@
 # GIS Web
 
-SvelteKit + Supabase dengan TypeScript dan Bun.
+SvelteKit + Supabase dengan TypeScript dan Bun..
 
 ## Mulai
 
