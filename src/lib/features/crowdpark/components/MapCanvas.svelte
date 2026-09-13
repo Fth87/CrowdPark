@@ -10,11 +10,15 @@
 	let {
 		mode = 'parking',
 		interactive = true,
+		vehicle = 'motorcycle',
+		searchQuery = '',
 		onselect,
 		class: className
 	}: {
 		mode?: 'parking' | 'location';
 		interactive?: boolean;
+		vehicle?: string;
+		searchQuery?: string;
 		onselect?: (spot: MapLocation) => void;
 		class?: string;
 	} = $props();
@@ -23,6 +27,8 @@
 	let map: Map | undefined;
 	let dynamicSpots = $state<MapLocation[]>([]);
 	let mapidLayersData = $state<MapidLayerData[]>([]);
+	let markersGroup: any;
+	let LInstance: any;
 
 	const LAYER_STYLES = [
 		{ color: '#0284c7', fillColor: '#38bdf8' }, // sky blue (Jl. Perwakilan)
@@ -31,6 +37,112 @@
 		{ color: '#7c3aed', fillColor: '#a78bfa' }  // violet
 	];
 
+	function renderMarkers() {
+		if (!LInstance || !markersGroup) return;
+		markersGroup.clearLayers();
+
+		for (const spot of dynamicSpots) {
+			const marker = LInstance.marker([spot.lat, spot.lng], {
+				icon: LInstance.divIcon({
+					className: 'crowdpark-marker-shell',
+					html: spot.primary
+						? '<span class="crowdpark-parking-marker">P</span>'
+						: `<span class="crowdpark-dot crowdpark-dot--${spot.status}"></span>`,
+					iconSize: spot.primary ? [44, 44] : [20, 20],
+					iconAnchor: spot.primary ? [22, 22] : [10, 10]
+				}),
+				title: spot.name || (spot.primary ? 'Parkir Timur Lempuyangan' : `${spot.slots} slots open`),
+				alt: spot.name || (spot.primary ? 'Parkir Timur Lempuyangan' : `${spot.slots} slots open`)
+			});
+
+			const walkText = spot.walkDistanceMeters
+				? `${spot.walkDistanceMeters}m (${Math.ceil((spot.walkDurationSeconds || 60) / 60)} mnt)`
+				: '-';
+			const motorRateText =
+				spot.motorRate != null ? `Rp ${spot.motorRate.toLocaleString('id-ID')}` : 'Gratis / -';
+			const carRateText =
+				spot.carRate != null ? `Rp ${spot.carRate.toLocaleString('id-ID')}` : null;
+
+			const hoverCard = `
+				<div class="crowdpark-hover-card">
+					<div class="header">
+						<div class="title">${spot.name || 'Kantong Parkir'}</div>
+						<div class="type-pill">${spot.type || 'Parkir Publik'}</div>
+					</div>
+					<div class="divider"></div>
+					<div class="grid">
+						<div class="item">
+							<span class="lbl">🏍️ Kapasitas Motor</span>
+							<span class="val">${spot.motorSlots || 0} slot</span>
+						</div>
+						${spot.carSlots ? `
+						<div class="item">
+							<span class="lbl">🚗 Kapasitas Mobil</span>
+							<span class="val">${spot.carSlots} slot</span>
+						</div>` : ''}
+						<div class="item">
+							<span class="lbl">🚶 Ke Stasiun</span>
+							<span class="val">${walkText}</span>
+						</div>
+						<div class="item">
+							<span class="lbl">💰 Tarif Motor</span>
+							<span class="val">${motorRateText}</span>
+						</div>
+						${carRateText ? `
+						<div class="item">
+							<span class="lbl">💰 Tarif Mobil</span>
+							<span class="val">${carRateText}</span>
+						</div>` : ''}
+						<div class="item">
+							<span class="lbl">🕒 Operasional</span>
+							<span class="val">${spot.operatingHours || '24 jam'}</span>
+						</div>
+					</div>
+					<div class="footer-hint">
+						<span>👆 Klik marker untuk navigasi & ulasan</span>
+					</div>
+				</div>
+			`;
+
+			marker.bindTooltip(hoverCard, {
+				direction: 'top',
+				offset: [0, spot.primary ? -20 : -10],
+				className: 'crowdpark-rich-tooltip',
+				opacity: 1
+			});
+
+			marker.on('click', () => onselect?.(spot));
+			markersGroup.addLayer(marker);
+		}
+	}
+
+	// Update markers when vehicle changes
+	$effect(() => {
+		if (mode === 'parking' && vehicle) {
+			fetchParkingLots(vehicle).then((spots) => {
+				dynamicSpots = spots;
+				renderMarkers();
+			});
+		}
+	});
+
+	// Fly to station when searchQuery changes
+	$effect(() => {
+		if (!map || mode !== 'parking') return;
+		const q = searchQuery.toLowerCase().trim();
+		if (!q) return;
+		if (q.includes('lempuyangan')) {
+			map.flyTo([-7.7904, 110.3756], 16, { duration: 1.2 });
+		} else if (
+			q.includes('tugu') ||
+			q.includes('yogyakarta') ||
+			q.includes('malioboro') ||
+			q.includes('perwakilan')
+		) {
+			map.flyTo([-7.7892, 110.3632], 16, { duration: 1.2 });
+		}
+	});
+
 	onMount(() => {
 		let active = true;
 		let resizeObserver: ResizeObserver | undefined;
@@ -38,7 +150,7 @@
 		const initMap = async () => {
 			if (mode === 'parking') {
 				const [spots, layers] = await Promise.all([
-					fetchParkingLots(),
+					fetchParkingLots(vehicle),
 					fetchMapidLayers()
 				]);
 				dynamicSpots = spots;
@@ -47,6 +159,8 @@
 
 			void import('leaflet').then((L) => {
 				if (!active || !container) return;
+				LInstance = L;
+
 				const center = mode === 'parking' && dynamicSpots.length > 0 ? dynamicSpots[0] : currentLocation;
 				map = L.map(container, {
 					zoomControl: interactive,
@@ -132,79 +246,10 @@
 						alt: 'Current location'
 					}).addTo(map);
 				} else {
-					for (const spot of dynamicSpots) {
-						const marker = L.marker([spot.lat, spot.lng], {
-							icon: L.divIcon({
-								className: 'crowdpark-marker-shell',
-								html: spot.primary
-									? '<span class="crowdpark-parking-marker">P</span>'
-									: `<span class="crowdpark-dot crowdpark-dot--${spot.status}"></span>`,
-								iconSize: spot.primary ? [44, 44] : [20, 20],
-								iconAnchor: spot.primary ? [22, 22] : [10, 10]
-							}),
-							title: spot.name || (spot.primary ? 'Parkir Timur Lempuyangan' : `${spot.slots} slots open`),
-							alt: spot.name || (spot.primary ? 'Parkir Timur Lempuyangan' : `${spot.slots} slots open`)
-						}).addTo(map);
-
-						const walkText = spot.walkDistanceMeters
-							? `${spot.walkDistanceMeters}m (${Math.ceil((spot.walkDurationSeconds || 60) / 60)} mnt)`
-							: '-';
-						const motorRateText =
-							spot.motorRate != null ? `Rp ${spot.motorRate.toLocaleString('id-ID')}` : 'Gratis / -';
-						const carRateText =
-							spot.carRate != null ? `Rp ${spot.carRate.toLocaleString('id-ID')}` : null;
-
-						const hoverCard = `
-							<div class="crowdpark-hover-card">
-								<div class="header">
-									<div class="title">${spot.name || 'Kantong Parkir'}</div>
-									<div class="type-pill">${spot.type || 'Parkir Publik'}</div>
-								</div>
-								<div class="divider"></div>
-								<div class="grid">
-									<div class="item">
-										<span class="lbl">🏍️ Kapasitas Motor</span>
-										<span class="val">${spot.motorSlots || 0} slot</span>
-									</div>
-									${spot.carSlots ? `
-									<div class="item">
-										<span class="lbl">🚗 Kapasitas Mobil</span>
-										<span class="val">${spot.carSlots} slot</span>
-									</div>` : ''}
-									<div class="item">
-										<span class="lbl">🚶 Ke Stasiun</span>
-										<span class="val">${walkText}</span>
-									</div>
-									<div class="item">
-										<span class="lbl">💰 Tarif Motor</span>
-										<span class="val">${motorRateText}</span>
-									</div>
-									${carRateText ? `
-									<div class="item">
-										<span class="lbl">💰 Tarif Mobil</span>
-										<span class="val">${carRateText}</span>
-									</div>` : ''}
-									<div class="item">
-										<span class="lbl">🕒 Operasional</span>
-										<span class="val">${spot.operatingHours || '24 jam'}</span>
-									</div>
-								</div>
-								<div class="footer-hint">
-									<span>👆 Klik marker untuk navigasi & ulasan</span>
-								</div>
-							</div>
-						`;
-
-						marker.bindTooltip(hoverCard, {
-							direction: 'top',
-							offset: [0, spot.primary ? -20 : -10],
-							className: 'crowdpark-rich-tooltip',
-							opacity: 1
-						});
-
-						marker.on('click', () => onselect?.(spot));
-					}
+					markersGroup = L.layerGroup().addTo(map);
+					renderMarkers();
 				}
+
 
 				resizeObserver = new ResizeObserver(() => map?.invalidateSize({ pan: false }));
 				resizeObserver.observe(container);

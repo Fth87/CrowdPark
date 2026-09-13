@@ -72,7 +72,41 @@ export const getSession = async () => {
 // PARKING LOTS — query langsung dari Supabase DB
 // ─────────────────────────────────────────────
 
-export const fetchParkingLots = async (): Promise<MapLocation[]> => {
+export const calculateLotStatus = (
+	lot: any,
+	vehicle: string = 'motorcycle'
+): { status: 'open' | 'low' | 'full'; displaySlots: number } => {
+	const isCar = vehicle === 'car' || vehicle === 'Car';
+	const cap = isCar ? (lot.kapasitas_mobil || 0) : (lot.kapasitas_motor || 0);
+
+	if (cap === 0) {
+		return { status: 'full', displaySlots: 0 };
+	}
+
+	const lotId = Number(lot.id);
+	let estimatedOcc = 0.64;
+
+	if (lotId === 6) estimatedOcc = 0.82; // Timur Lempuyangan
+	else if (lotId === 1) estimatedOcc = 0.78; // Malioboro Mall
+	else if (lotId === 2) estimatedOcc = 0.74; // Stasiun Tugu Resmi
+	else if (lotId === 4) estimatedOcc = 0.72; // Abu Bakar Ali
+	else if (lotId === 5) estimatedOcc = 0.45; // DPRD DIY
+
+	const remainingSlots = Math.max(1, Math.round(cap * (1 - estimatedOcc)));
+
+	let status: 'open' | 'low' | 'full' = 'open';
+	if (estimatedOcc >= 0.8) {
+		status = 'full';
+	} else if (estimatedOcc >= 0.7) {
+		status = 'low';
+	} else {
+		status = 'open';
+	}
+
+	return { status, displaySlots: remainingSlots };
+};
+
+export const fetchParkingLots = async (vehicle: string = 'motorcycle'): Promise<MapLocation[]> => {
 	try {
 		const { data, error } = await getSupabase()
 			.from('parking_lots_geo')
@@ -81,23 +115,26 @@ export const fetchParkingLots = async (): Promise<MapLocation[]> => {
 
 		if (error) throw error;
 
-		return (data ?? []).map((lot: any) => ({
-			id: lot.id.toString(),
-			lat: lot.lat,
-			lng: lot.lng,
-			name: lot.nama,
-			type: lot.tipe,
-			slots: (lot.kapasitas_motor || 0) + (lot.kapasitas_mobil || 0),
-			motorSlots: lot.kapasitas_motor || 0,
-			carSlots: lot.kapasitas_mobil || 0,
-			motorRate: lot.tarif_motor,
-			carRate: lot.tarif_mobil,
-			operatingHours: lot.jam_operasional,
-			walkDistanceMeters: lot.jarak_meter ? Number(lot.jarak_meter) : null,
-			walkDurationSeconds: lot.durasi_detik,
-			status: 'open' as const,
-			primary: lot.nama.toLowerCase().includes('lempuyangan')
-		}));
+		return (data ?? []).map((lot: any) => {
+			const { status, displaySlots } = calculateLotStatus(lot, vehicle);
+			return {
+				id: lot.id.toString(),
+				lat: lot.lat,
+				lng: lot.lng,
+				name: lot.nama,
+				type: lot.tipe,
+				slots: displaySlots,
+				motorSlots: lot.kapasitas_motor || 0,
+				carSlots: lot.kapasitas_mobil || 0,
+				motorRate: lot.tarif_motor,
+				carRate: lot.tarif_mobil,
+				operatingHours: lot.jam_operasional,
+				walkDistanceMeters: lot.jarak_meter ? Number(lot.jarak_meter) : null,
+				walkDurationSeconds: lot.durasi_detik,
+				status,
+				primary: lot.nama.toLowerCase().includes('lempuyangan')
+			};
+		});
 	} catch (err) {
 		console.error('[fetchParkingLots]', err);
 		return [];
@@ -294,6 +331,57 @@ export const fetchReviews = async (lotId: number) => {
 		return [];
 	}
 };
+
+export const submitReview = async (review: {
+	lot_id: number;
+	rating: number;
+	ulasan: string;
+	nama_reviewer?: string;
+}) => {
+	try {
+		const session = await getSession();
+		const userId = session?.user?.id ?? null;
+		const userName =
+			review.nama_reviewer ||
+			session?.user?.user_metadata?.full_name ||
+			session?.user?.email?.split('@')[0] ||
+			'Pengguna CrowdPark';
+
+		const { data, error } = await getSupabase()
+			.from('parking_reviews')
+			.insert({
+				lot_id: review.lot_id,
+				user_id: userId,
+				nama_reviewer: userName,
+				rating: review.rating,
+				ulasan: review.ulasan
+			})
+			.select()
+			.single();
+
+		return { data, error };
+	} catch (err: any) {
+		console.error('[submitReview]', err);
+		return { data: null, error: err.message || 'Gagal mengirim ulasan' };
+	}
+};
+
+export const checkIfSpotSaved = async (lotId: number): Promise<boolean> => {
+	try {
+		const session = await getSession();
+		if (!session) return false;
+		const { data } = await getSupabase()
+			.from('user_saved_spots')
+			.select('lot_id')
+			.eq('lot_id', lotId)
+			.eq('user_id', session.user.id)
+			.maybeSingle();
+		return !!data;
+	} catch {
+		return false;
+	}
+};
+
 
 // ─────────────────────────────────────────────
 // GEO MAPID LAYER

@@ -5,11 +5,19 @@
 	import SparklesIcon from '@lucide/svelte/icons/sparkles';
 	import * as Alert from '$lib/components/ui/alert';
 	import * as Card from '$lib/components/ui/card';
+	import * as Drawer from '$lib/components/ui/drawer';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import { Separator } from '$lib/components/ui/separator';
 	import { facilities, parkingSpot as staticSpot } from '../data';
-	import { fetchParkingEstimate, fetchReviews } from '../api';
+	import {
+		fetchParkingEstimate,
+		fetchReviews,
+		submitReview,
+		saveSpot,
+		unsaveSpot,
+		checkIfSpotSaved
+	} from '../api';
 	import type { ParkingSpot } from '../types';
 
 	let { sheet = false, id = undefined }: { sheet?: boolean; id?: string } = $props();
@@ -18,19 +26,73 @@
 	let lastUpdated = $state<Date | null>(null);
 	let dbReviews = $state<any[]>([]);
 
+	let isSaved = $state(false);
+	let savingBookmark = $state(false);
+
+	let reviewDrawerOpen = $state(false);
+	let newRating = $state(5);
+	let newComment = $state('');
+	let reviewerName = $state('');
+	let submittingReview = $state(false);
+	let reviewError = $state('');
+
 	$effect(() => {
 		if (id) {
-			fetchParkingEstimate(Number(id)).then((data) => {
+			const lotId = Number(id);
+			fetchParkingEstimate(lotId).then((data) => {
 				if (data) {
 					spot = data;
 					lastUpdated = new Date();
 				}
 			});
-			fetchReviews(Number(id)).then((data) => {
+			fetchReviews(lotId).then((data) => {
 				dbReviews = data;
+			});
+			checkIfSpotSaved(lotId).then((saved) => {
+				isSaved = saved;
 			});
 		}
 	});
+
+	async function handleToggleBookmark() {
+		if (!id) return;
+		savingBookmark = true;
+		const lotId = Number(id);
+		if (isSaved) {
+			await unsaveSpot(lotId);
+			isSaved = false;
+		} else {
+			const res = await saveSpot(lotId);
+			if (!res.error) isSaved = true;
+		}
+		savingBookmark = false;
+	}
+
+	async function handlePostReview() {
+		if (!id) return;
+		if (!newComment.trim()) {
+			reviewError = 'Tuliskan ulasan kamu terlebih dahulu.';
+			return;
+		}
+		submittingReview = true;
+		reviewError = '';
+		const { error } = await submitReview({
+			lot_id: Number(id),
+			rating: newRating,
+			ulasan: newComment.trim(),
+			nama_reviewer: reviewerName.trim() || undefined
+		});
+		submittingReview = false;
+		if (error) {
+			reviewError = typeof error === 'string' ? error : 'Gagal mengirim ulasan.';
+			return;
+		}
+		dbReviews = await fetchReviews(Number(id));
+		newComment = '';
+		reviewerName = '';
+		newRating = 5;
+		reviewDrawerOpen = false;
+	}
 
 	const syncText = $derived(() => {
 		if (!lastUpdated) return 'Belum diperbarui';
@@ -55,12 +117,13 @@
 		{ label: '▣　Rate', value: spot.rate, detail: 'Flat hour' },
 		{ label: '♙　Walk', value: `${spot.walkMinutes} mnt`, detail: 'walk to the station' }
 	]);
+
 	const avgRating = $derived(
 		dbReviews.length > 0
 			? (dbReviews.reduce((sum, r) => sum + r.rating, 0) / dbReviews.length).toFixed(1)
 			: '0.0'
 	);
-	
+
 	const formatRelativeTime = (dateStr: string) => {
 		const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
 		if (diff < 3600) return `${Math.floor(diff / 60)} menit lalu`;
@@ -80,8 +143,8 @@
 			<div>
 				<Card.Title>{spot.name}</Card.Title><Card.Description>{spot.address}</Card.Description>
 				<div class="mt-1 flex gap-1">
-					<Badge variant="secondary">Motorcycle parking area</Badge><Badge variant="secondary"
-						>★ {spot.rating}（{spot.reviews} ulasan）</Badge
+					<Badge variant="secondary">Area Parkir</Badge><Badge variant="secondary"
+						>★ {avgRating}（{dbReviews.length} ulasan）</Badge
 					>
 				</div>
 			</div>
@@ -113,10 +176,12 @@
 				rel="noopener noreferrer"
 				class="h-12 flex-1"><NavigationIcon />Go there</Button
 			><Button
-				variant="secondary"
+				variant={isSaved ? 'default' : 'secondary'}
 				size="icon-lg"
-				aria-label="Save place"
-				class="size-12 rounded-full"><BookmarkIcon /></Button
+				aria-label={isSaved ? 'Hapus dari tersimpan' : 'Simpan lokasi parkir'}
+				class="size-12 rounded-full transition-all {isSaved ? 'bg-primary text-primary-foreground' : ''}"
+				disabled={savingBookmark}
+				onclick={handleToggleBookmark}><BookmarkIcon class={isSaved ? 'fill-current' : ''} /></Button
 			><Button
 				variant="secondary"
 				size="icon-lg"
@@ -136,7 +201,9 @@
 		<Separator />
 		<div class="flex items-center justify-between">
 			<h2 class="font-semibold">Rating & Ulasan<br />Pengguna</h2>
-			<Button variant="outline" class="rounded-full">+ Tulis Ulasan</Button>
+			<Button variant="outline" class="rounded-full" onclick={() => (reviewDrawerOpen = true)}
+				>+ Tulis Ulasan</Button
+			>
 		</div>
 		<Card.Root size="sm" class="bg-secondary"
 			><Card.Header class="flex-row items-center"
@@ -169,3 +236,69 @@
 			>{/each}
 	</Card.Content>
 </Card.Root>
+
+<!-- Drawer Tulis Ulasan -->
+<Drawer.Root bind:open={reviewDrawerOpen}>
+	<Drawer.Content class="max-w-md mx-auto px-4 pb-6">
+		<Drawer.Header class="px-0 text-left">
+			<Drawer.Title>Tulis Ulasan</Drawer.Title>
+			<Drawer.Description>{spot.name} — Berikan rating dan pengalaman parkir Anda.</Drawer.Description>
+		</Drawer.Header>
+
+		<div class="flex flex-col gap-4 py-2">
+			<!-- Rating Stars -->
+			<div class="flex flex-col gap-1.5">
+				<span class="text-sm font-medium">Beri Rating Bintang</span>
+				<div class="flex items-center gap-2">
+					{#each [1, 2, 3, 4, 5] as star}
+						<button
+							type="button"
+							class="text-2xl transition-transform hover:scale-110 focus:outline-none"
+							onclick={() => (newRating = star)}
+						>
+							{star <= newRating ? '★' : '☆'}
+						</button>
+					{/each}
+					<span class="ml-2 text-sm font-semibold text-amber-500">{newRating} / 5</span>
+				</div>
+			</div>
+
+			<!-- Nama Reviewer -->
+			<div class="flex flex-col gap-1.5">
+				<label class="text-sm font-medium" for="rev-name">Nama Anda (Opsional)</label>
+				<input
+					id="rev-name"
+					bind:value={reviewerName}
+					placeholder="Contoh: Budi, Pengguna KRL"
+					class="h-10 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+				/>
+			</div>
+
+			<!-- Komentar -->
+			<div class="flex flex-col gap-1.5">
+				<label class="text-sm font-medium" for="rev-comment">Ulasan Pengalaman Parkir</label>
+				<textarea
+					id="rev-comment"
+					bind:value={newComment}
+					rows={3}
+					placeholder="Ceritakan kemudahan parkir, keramahan jukir, keamanan, dll."
+					class="w-full rounded-md border border-border bg-background p-3 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+				></textarea>
+			</div>
+
+			{#if reviewError}
+				<p class="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{reviewError}</p>
+			{/if}
+		</div>
+
+		<Drawer.Footer class="gap-2 px-0 pt-3 flex-row">
+			<Button variant="outline" class="flex-1" onclick={() => (reviewDrawerOpen = false)}>
+				Batal
+			</Button>
+			<Button onclick={handlePostReview} disabled={submittingReview} class="shadow-brand flex-1">
+				{submittingReview ? 'Mengirim...' : 'Kirim Ulasan'}
+			</Button>
+		</Drawer.Footer>
+	</Drawer.Content>
+</Drawer.Root>
+

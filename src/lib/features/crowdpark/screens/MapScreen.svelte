@@ -8,10 +8,10 @@
 	import ParkingDetails from '../components/ParkingDetails.svelte';
 	import SearchControls from '../components/SearchControls.svelte';
 	import VehicleToggle from '../components/VehicleToggle.svelte';
-	let query = $state('Stasiun Yogyakarta');
-	let vehicle = $state('motorcycle');
+	let query = $state(page.url.searchParams.get('q') || 'Stasiun Yogyakarta');
+	let vehicle = $state(page.url.searchParams.get('vehicle') || 'motorcycle');
 	let selected = $state(page.url.searchParams.has('spot'));
-	let activeId = $state<string | undefined>(undefined);
+	let activeId = $state<string | undefined>(page.url.searchParams.get('spot') || undefined);
 	const isDesktop = new MediaQuery('(min-width: 768px)');
 </script>
 
@@ -20,7 +20,14 @@
 <MobileHeader />
 <main class="relative h-[calc(100dvh-78px)] overflow-hidden md:h-screen md:pt-16">
 	<div class="absolute inset-x-0 top-[146px] bottom-0 md:top-16 md:left-[438px]">
-		<MapCanvas onselect={(spot) => { selected = true; activeId = spot.id?.toString(); }} />
+		<MapCanvas
+			searchQuery={query}
+			{vehicle}
+			onselect={(spot) => {
+				selected = true;
+				activeId = spot.id?.toString();
+			}}
+		/>
 	</div>
 	<aside
 		class="absolute top-0 right-0 left-0 z-10 bg-background px-4 pb-5 md:top-16 md:right-auto md:bottom-8 md:w-[438px] md:px-10 md:pt-8"
