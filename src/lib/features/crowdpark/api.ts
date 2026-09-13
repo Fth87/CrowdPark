@@ -285,3 +285,52 @@ export const fetchReviews = async (lotId: number) => {
 		return [];
 	}
 };
+
+// ─────────────────────────────────────────────
+// GEO MAPID LAYER
+// ─────────────────────────────────────────────
+
+export interface MapidFeature {
+	id: string;
+	type: string;
+	geometry: {
+		type: string;
+		coordinates: number[][][];
+	};
+	properties: {
+		id_tool?: string;
+		area_meter_square?: string;
+		area_hectare?: number;
+		[key: string]: any;
+	};
+	user?: {
+		_id: string;
+		name: string;
+		full_name: string;
+	};
+}
+
+export interface MapidLayerData {
+	layer_id: string;
+	layer_name: string;
+	fields: Array<{ key: string; name: string; type: string; description: string }>;
+	folder_id: string;
+	type: string;
+	features: MapidFeature[];
+}
+
+export const fetchMapidLayer = async (): Promise<MapidLayerData | null> => {
+	try {
+		const url =
+			env.PUBLIC_MAPID_LAYER_URL ||
+			'https://geoserver.mapid.io/layers_new/get_layer?api_key=7ed0f3e340ec44c7b17cc8305b729e37&layer_id=6a998292ed2d202e6a8fd78e&project_id=6a945f3b03ee2f4d1ee63bc4';
+		const res = await fetch(url);
+		if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+		const json = await res.json();
+		return json as MapidLayerData;
+	} catch (err) {
+		console.error('[fetchMapidLayer]', err);
+		return null;
+	}
+};
+

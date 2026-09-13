@@ -3,7 +3,7 @@
 	import { onMount } from 'svelte';
 	import type { Map } from 'leaflet';
 	import { cn } from '$lib/utils';
-	import { fetchParkingLots } from '../api';
+	import { fetchParkingLots, fetchMapidLayer, type MapidLayerData } from '../api';
 	import { currentLocation } from '../data';
 	import type { MapLocation } from '../types';
 
@@ -22,6 +22,7 @@
 	let container: HTMLDivElement;
 	let map: Map | undefined;
 	let dynamicSpots = $state<MapLocation[]>([]);
+	let mapidLayerData = $state<MapidLayerData | null>(null);
 
 	onMount(() => {
 		let active = true;
@@ -29,7 +30,12 @@
 
 		const initMap = async () => {
 			if (mode === 'parking') {
-				dynamicSpots = await fetchParkingLots();
+				const [spots, layerData] = await Promise.all([
+					fetchParkingLots(),
+					fetchMapidLayer()
+				]);
+				dynamicSpots = spots;
+				mapidLayerData = layerData;
 			}
 
 			void import('leaflet').then((L) => {
@@ -50,6 +56,44 @@
 					attribution:
 						'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
 				}).addTo(map);
+
+				// Render GEO MAPID polygon layer if available
+				if (mode === 'parking' && mapidLayerData && mapidLayerData.features?.length > 0) {
+					L.geoJSON(mapidLayerData as any, {
+						style: {
+							color: '#0284c7',
+							weight: 2.5,
+							dashArray: '5, 5',
+							fillColor: '#38bdf8',
+							fillOpacity: 0.35
+						},
+						onEachFeature: (feature, layer) => {
+							const props = feature.properties || {};
+							const areaM2 = props.area_meter_square ?? '-';
+							const areaHa = props.area_hectare ?? '-';
+							const idTool = props.id_tool ?? 'A-1';
+							const featureAny = feature as any;
+							const userName = featureAny.user?.name || featureAny.user?.full_name || 'janu';
+
+							layer.bindPopup(`
+								<div style="font-family: inherit; font-size: 13px; line-height: 1.5; min-width: 190px;">
+									<div style="font-weight: 700; color: #0284c7; font-size: 14px; margin-bottom: 3px;">
+										🗺️ ${mapidLayerData?.layer_name || 'Area Parkir GEO MAPID'}
+									</div>
+									<div style="color: #64748b; font-size: 12px; margin-bottom: 6px;">
+										Digitasi oleh <b>${userName}</b> (${idTool})
+									</div>
+									<div style="background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 6px; padding: 6px 8px; color: #0369a1; font-size: 12px; margin-bottom: 6px;">
+										Luas Area: <b>${areaM2} m²</b> (${areaHa} ha)
+									</div>
+									<div style="font-size: 11px; color: #94a3b8;">
+										Live Sync: GEO MAPID Geoserver API
+									</div>
+								</div>
+							`);
+						}
+					}).addTo(map);
+				}
 
 				if (mode === 'location') {
 					L.marker([currentLocation.lat, currentLocation.lng], {
@@ -83,7 +127,7 @@
 							offset: [0, spot.primary ? -18 : -8],
 							className: 'crowdpark-map-tooltip'
 						});
-						if (spot.primary) marker.on('click', () => onselect?.(spot));
+						marker.on('click', () => onselect?.(spot));
 					}
 				}
 
@@ -103,11 +147,23 @@
 	});
 </script>
 
-<div
-	bind:this={container}
-	class={cn('isolate h-full w-full bg-muted', className)}
-	aria-label={mode === 'parking' ? 'Parking availability map' : 'Current location map'}
-></div>
+<div class={cn('relative isolate h-full w-full', className)}>
+	<div
+		bind:this={container}
+		class="h-full w-full bg-muted"
+		aria-label={mode === 'parking' ? 'Parking availability map' : 'Current location map'}
+	></div>
+
+	{#if mode === 'parking' && mapidLayerData}
+		<div
+			class="pointer-events-none absolute top-3 right-3 z-[1000] flex items-center gap-1.5 rounded-full border border-sky-200 bg-white/95 px-3 py-1 text-xs font-semibold text-sky-900 shadow-sm backdrop-blur-sm"
+		>
+			<span class="size-2 animate-pulse rounded-full bg-sky-500"></span>
+			<span>GEO MAPID: {mapidLayerData.layer_name}</span>
+		</div>
+	{/if}
+</div>
+
 
 <style>
 	:global(.crowdpark-marker-shell) {

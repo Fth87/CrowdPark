@@ -39,8 +39,10 @@
 		"vite": "^8.0.16"
 	},
 	"dependencies": {
+		"@maplibre/maplibre-gl-leaflet": "^0.1.4",
 		"@supabase/ssr": "^0.12.7",
 		"@supabase/supabase-js": "^2.116.0",
-		"leaflet": "^1.9.4"
+		"leaflet": "^1.9.4",
+		"maplibre-gl": "^6.9.0"
 	}
 }
