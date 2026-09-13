@@ -2,12 +2,24 @@
 	import CarFrontIcon from '@lucide/svelte/icons/car-front';
 	import BikeIcon from '@lucide/svelte/icons/bike';
 	import * as ToggleGroup from '$lib/components/ui/toggle-group';
-	let { value = $bindable('motorcycle') }: { value?: string } = $props();
+	let {
+		value = $bindable('motorcycle'),
+		onchange
+	}: {
+		value?: string;
+		onchange?: (val: string) => void;
+	} = $props();
 </script>
 
 <ToggleGroup.Root
 	type="single"
 	bind:value
+	onValueChange={(v) => {
+		if (v) {
+			value = v;
+			onchange?.(v);
+		}
+	}}
 	variant="brand"
 	class="h-[54px] w-full rounded-[22px] border p-1.5 shadow-xs"
 >
