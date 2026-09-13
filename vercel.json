@@ -1,0 +1,5 @@
+{
+	"$schema": "https://openapi.vercel.sh/vercel.json",
+	"framework": "sveltekit",
+	"installCommand": "bunx bun@1.4.0 install --frozen-lockfile"
+}
