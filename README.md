@@ -1,6 +1,6 @@
 # CrowdPark AI (Frontend WebGIS)
 
-Aplikasi WebGIS prediktif ketersediaan parkir di sekitar stasiun transit massal untuk MAPID WebGIS Competition 2026. Dibangun menggunakan SvelteKit, Supabase, Tailwind CSS, dan Leaflet.js..
+Aplikasi WebGIS prediktif ketersediaan parkir di sekitar stasiun transit massal untuk MAPID WebGIS Competition 2026. Dibangun menggunakan SvelteKit, Supabase, Tailwind CSS, dan Leaflet.js.
 
 > [!NOTE]
 > **Catatan Penggunaan Data:** Sistem saat ini menggunakan data dummy (sintetis) untuk simulasi observasi keterisian dan estimasi parkir. Pendekatan ini diambil karena keterbatasan waktu dan keterbatasan sumber daya manusia (SDM) untuk menjalankan survei lapangan langsung selama masa kompetisi.
