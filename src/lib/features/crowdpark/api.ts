@@ -76,7 +76,7 @@ export const fetchParkingLots = async (): Promise<MapLocation[]> => {
 	try {
 		const { data, error } = await getSupabase()
 			.from('parking_lots_geo')
-			.select('id, nama, lat, lng, kapasitas_motor, kapasitas_mobil')
+			.select('*')
 			.eq('is_active', true);
 
 		if (error) throw error;
@@ -85,7 +85,16 @@ export const fetchParkingLots = async (): Promise<MapLocation[]> => {
 			id: lot.id.toString(),
 			lat: lot.lat,
 			lng: lot.lng,
-			slots: lot.kapasitas_motor + lot.kapasitas_mobil,
+			name: lot.nama,
+			type: lot.tipe,
+			slots: (lot.kapasitas_motor || 0) + (lot.kapasitas_mobil || 0),
+			motorSlots: lot.kapasitas_motor || 0,
+			carSlots: lot.kapasitas_mobil || 0,
+			motorRate: lot.tarif_motor,
+			carRate: lot.tarif_mobil,
+			operatingHours: lot.jam_operasional,
+			walkDistanceMeters: lot.jarak_meter ? Number(lot.jarak_meter) : null,
+			walkDurationSeconds: lot.durasi_detik,
 			status: 'open' as const,
 			primary: lot.nama.toLowerCase().includes('lempuyangan')
 		}));

@@ -33,4 +33,14 @@ export type MapLocation = {
 	slots?: number;
 	status?: 'open' | 'low' | 'full';
 	primary?: boolean;
+	name?: string;
+	type?: string;
+	motorSlots?: number;
+	carSlots?: number;
+	motorRate?: number | null;
+	carRate?: number | null;
+	operatingHours?: string | null;
+	walkDistanceMeters?: number | null;
+	walkDurationSeconds?: number | null;
 };
+

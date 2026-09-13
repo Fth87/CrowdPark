@@ -103,6 +103,18 @@
 										</div>
 									</div>
 								`);
+
+								// Sticky hover tooltip on polygon
+								layer.bindTooltip(`
+									<div style="font-family: inherit; font-size: 12px; line-height: 1.4; padding: 2px 4px;">
+										<div style="font-weight: 700; color: ${styleConfig.color};">🗺️ ${layerData.layer_name}</div>
+										<div style="color: #64748b; font-size: 11px;">Luas: <b>${areaM2} m²</b> • Klik untuk info</div>
+									</div>
+								`, {
+									sticky: true,
+									direction: 'top',
+									className: 'crowdpark-polygon-hover-tooltip'
+								});
 							}
 						}).addTo(targetMap);
 					});
@@ -130,16 +142,66 @@
 								iconSize: spot.primary ? [44, 44] : [20, 20],
 								iconAnchor: spot.primary ? [22, 22] : [10, 10]
 							}),
-							title: spot.primary ? 'Parkir Timur Lempuyangan' : `${spot.slots} slots open`,
-							alt: spot.primary ? 'Parkir Timur Lempuyangan' : `${spot.slots} slots open`
+							title: spot.name || (spot.primary ? 'Parkir Timur Lempuyangan' : `${spot.slots} slots open`),
+							alt: spot.name || (spot.primary ? 'Parkir Timur Lempuyangan' : `${spot.slots} slots open`)
 						}).addTo(map);
 
-						marker.bindTooltip(`~${spot.slots} Slot open`, {
-							permanent: true,
+						const walkText = spot.walkDistanceMeters
+							? `${spot.walkDistanceMeters}m (${Math.ceil((spot.walkDurationSeconds || 60) / 60)} mnt)`
+							: '-';
+						const motorRateText =
+							spot.motorRate != null ? `Rp ${spot.motorRate.toLocaleString('id-ID')}` : 'Gratis / -';
+						const carRateText =
+							spot.carRate != null ? `Rp ${spot.carRate.toLocaleString('id-ID')}` : null;
+
+						const hoverCard = `
+							<div class="crowdpark-hover-card">
+								<div class="header">
+									<div class="title">${spot.name || 'Kantong Parkir'}</div>
+									<div class="type-pill">${spot.type || 'Parkir Publik'}</div>
+								</div>
+								<div class="divider"></div>
+								<div class="grid">
+									<div class="item">
+										<span class="lbl">🏍️ Kapasitas Motor</span>
+										<span class="val">${spot.motorSlots || 0} slot</span>
+									</div>
+									${spot.carSlots ? `
+									<div class="item">
+										<span class="lbl">🚗 Kapasitas Mobil</span>
+										<span class="val">${spot.carSlots} slot</span>
+									</div>` : ''}
+									<div class="item">
+										<span class="lbl">🚶 Ke Stasiun</span>
+										<span class="val">${walkText}</span>
+									</div>
+									<div class="item">
+										<span class="lbl">💰 Tarif Motor</span>
+										<span class="val">${motorRateText}</span>
+									</div>
+									${carRateText ? `
+									<div class="item">
+										<span class="lbl">💰 Tarif Mobil</span>
+										<span class="val">${carRateText}</span>
+									</div>` : ''}
+									<div class="item">
+										<span class="lbl">🕒 Operasional</span>
+										<span class="val">${spot.operatingHours || '24 jam'}</span>
+									</div>
+								</div>
+								<div class="footer-hint">
+									<span>👆 Klik marker untuk navigasi & ulasan</span>
+								</div>
+							</div>
+						`;
+
+						marker.bindTooltip(hoverCard, {
 							direction: 'top',
-							offset: [0, spot.primary ? -18 : -8],
-							className: 'crowdpark-map-tooltip'
+							offset: [0, spot.primary ? -20 : -10],
+							className: 'crowdpark-rich-tooltip',
+							opacity: 1
 						});
+
 						marker.on('click', () => onselect?.(spot));
 					}
 				}
@@ -226,5 +288,78 @@
 		font-family: var(--font-sans);
 		font-size: 14px;
 		padding: 7px 14px;
+	}
+	:global(.crowdpark-rich-tooltip) {
+		background: #ffffff !important;
+		border: 1px solid rgba(0, 0, 0, 0.08) !important;
+		border-radius: 14px !important;
+		box-shadow: 0 12px 28px -4px rgba(0, 0, 0, 0.18), 0 8px 10px -6px rgba(0, 0, 0, 0.08) !important;
+		padding: 12px 14px !important;
+		min-width: 230px !important;
+		max-width: 290px !important;
+		pointer-events: none;
+	}
+	:global(.crowdpark-rich-tooltip.leaflet-tooltip-top:before) {
+		border-top-color: #ffffff !important;
+	}
+	:global(.crowdpark-hover-card .header) {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+	}
+	:global(.crowdpark-hover-card .title) {
+		font-weight: 700;
+		font-size: 13.5px;
+		color: #0f172a;
+		line-height: 1.3;
+	}
+	:global(.crowdpark-hover-card .type-pill) {
+		display: inline-block;
+		font-size: 11px;
+		color: #64748b;
+		margin-top: 1px;
+	}
+	:global(.crowdpark-hover-card .divider) {
+		height: 1px;
+		background: #f1f5f9;
+		margin: 7px 0;
+	}
+	:global(.crowdpark-hover-card .grid) {
+		display: grid;
+		grid-template-columns: 1fr;
+		gap: 4.5px;
+		font-size: 11.5px;
+	}
+	:global(.crowdpark-hover-card .item) {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		gap: 8px;
+	}
+	:global(.crowdpark-hover-card .lbl) {
+		color: #64748b;
+		white-space: nowrap;
+	}
+	:global(.crowdpark-hover-card .val) {
+		font-weight: 600;
+		color: #0f172a;
+		text-align: right;
+	}
+	:global(.crowdpark-hover-card .footer-hint) {
+		margin-top: 8px;
+		padding-top: 6px;
+		border-top: 1px dashed #e2e8f0;
+		font-size: 10.5px;
+		color: #0284c7;
+		font-weight: 600;
+		text-align: center;
+	}
+	:global(.crowdpark-polygon-hover-tooltip) {
+		background: #ffffff !important;
+		border: 1px solid #bae6fd !important;
+		border-radius: 8px !important;
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+		padding: 6px 10px !important;
+		pointer-events: none;
 	}
 </style>
