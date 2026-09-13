@@ -1,8 +1,11 @@
-# GIS Web
+# CrowdPark AI (Frontend WebGIS)
 
-SvelteKit + Supabase dengan TypeScript dan Bun..
+Aplikasi WebGIS prediktif ketersediaan parkir di sekitar stasiun transit massal untuk MAPID WebGIS Competition 2026. Dibangun menggunakan SvelteKit, Supabase, Tailwind CSS, dan Leaflet.js.
 
-## Mulai
+> [!NOTE]
+> **Catatan Penggunaan Data:** Sistem saat ini menggunakan data dummy (sintetis) untuk simulasi observasi keterisian dan estimasi parkir. Pendekatan ini diambil karena keterbatasan waktu dan keterbatasan sumber daya manusia (SDM) untuk menjalankan survei lapangan langsung selama masa kompetisi.
+
+## Cara Menjalankan
 
 ```sh
 cp .env.example .env
@@ -10,16 +13,12 @@ bun install
 bun run dev
 ```
 
-Isi `PUBLIC_SUPABASE_URL` dan `PUBLIC_SUPABASE_PUBLISHABLE_KEY` dari Supabase Dashboard.
-`PUBLIC_OSM_TILE_URL` bersifat opsional dan menggunakan tile standar OpenStreetMap secara default.
-Gunakan publishable key untuk aplikasi web; jangan masukkan secret key ke kode client atau `.env` yang dibagikan.
+Isi variabel `PUBLIC_SUPABASE_URL` dan `PUBLIC_SUPABASE_PUBLISHABLE_KEY` dari dashboard Supabase.
+Variabel `PUBLIC_OSM_TILE_URL` bersifat opsional dan memakai tile standar OpenStreetMap secara bawaan.
 
-## Verifikasi
+## Verifikasi Build
 
 ```sh
-bun run format
 bun run check
 bun run build
 ```
-
-Database type placeholder di `src/lib/database.types.ts` perlu diganti dengan type hasil generate setelah schema Supabase dibuat
