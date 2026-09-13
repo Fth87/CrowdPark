@@ -319,18 +319,42 @@ export interface MapidLayerData {
 	features: MapidFeature[];
 }
 
-export const fetchMapidLayer = async (): Promise<MapidLayerData | null> => {
+export const MAPID_CONFIG = {
+	apiKey: env.PUBLIC_MAPID_API_KEY || '7ed0f3e340ec44c7b17cc8305b729e37',
+	projectId: env.PUBLIC_MAPID_PROJECT_ID || '6a945f3b03ee2f4d1ee63bc4',
+	layerIds: [
+		'6a998292ed2d202e6a8fd78e', // parkir motor jl.perwakilan
+		'6aa6af04753cb27abe0e44b1'  // kantong parkir bahu jalan
+	]
+};
+
+export const fetchMapidLayer = async (
+	layerId: string = MAPID_CONFIG.layerIds[0]
+): Promise<MapidLayerData | null> => {
 	try {
-		const url =
-			env.PUBLIC_MAPID_LAYER_URL ||
-			'https://geoserver.mapid.io/layers_new/get_layer?api_key=7ed0f3e340ec44c7b17cc8305b729e37&layer_id=6a998292ed2d202e6a8fd78e&project_id=6a945f3b03ee2f4d1ee63bc4';
+		const apiKey = MAPID_CONFIG.apiKey;
+		const projectId = MAPID_CONFIG.projectId;
+		const url = `https://geoserver.mapid.io/layers_new/get_layer?api_key=${apiKey}&layer_id=${layerId}&project_id=${projectId}`;
 		const res = await fetch(url);
 		if (!res.ok) throw new Error(`HTTP error ${res.status}`);
 		const json = await res.json();
 		return json as MapidLayerData;
 	} catch (err) {
-		console.error('[fetchMapidLayer]', err);
+		console.error(`[fetchMapidLayer:${layerId}]`, err);
 		return null;
 	}
 };
+
+export const fetchMapidLayers = async (
+	layerIds: string[] = MAPID_CONFIG.layerIds
+): Promise<MapidLayerData[]> => {
+	try {
+		const results = await Promise.all(layerIds.map((id) => fetchMapidLayer(id)));
+		return results.filter((item): item is MapidLayerData => item !== null);
+	} catch (err) {
+		console.error('[fetchMapidLayers]', err);
+		return [];
+	}
+};
+
 

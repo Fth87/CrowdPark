@@ -3,7 +3,7 @@
 	import { onMount } from 'svelte';
 	import type { Map } from 'leaflet';
 	import { cn } from '$lib/utils';
-	import { fetchParkingLots, fetchMapidLayer, type MapidLayerData } from '../api';
+	import { fetchParkingLots, fetchMapidLayers, type MapidLayerData } from '../api';
 	import { currentLocation } from '../data';
 	import type { MapLocation } from '../types';
 
@@ -22,7 +22,14 @@
 	let container: HTMLDivElement;
 	let map: Map | undefined;
 	let dynamicSpots = $state<MapLocation[]>([]);
-	let mapidLayerData = $state<MapidLayerData | null>(null);
+	let mapidLayersData = $state<MapidLayerData[]>([]);
+
+	const LAYER_STYLES = [
+		{ color: '#0284c7', fillColor: '#38bdf8' }, // sky blue (Jl. Perwakilan)
+		{ color: '#d97706', fillColor: '#fbbf24' }, // amber / orange (Bahu Jalan Lempuyangan)
+		{ color: '#059669', fillColor: '#34d399' }, // emerald
+		{ color: '#7c3aed', fillColor: '#a78bfa' }  // violet
+	];
 
 	onMount(() => {
 		let active = true;
@@ -30,12 +37,12 @@
 
 		const initMap = async () => {
 			if (mode === 'parking') {
-				const [spots, layerData] = await Promise.all([
+				const [spots, layers] = await Promise.all([
 					fetchParkingLots(),
-					fetchMapidLayer()
+					fetchMapidLayers()
 				]);
 				dynamicSpots = spots;
-				mapidLayerData = layerData;
+				mapidLayersData = layers;
 			}
 
 			void import('leaflet').then((L) => {
@@ -57,42 +64,48 @@
 						'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
 				}).addTo(map);
 
-				// Render GEO MAPID polygon layer if available
-				if (mode === 'parking' && mapidLayerData && mapidLayerData.features?.length > 0) {
-					L.geoJSON(mapidLayerData as any, {
-						style: {
-							color: '#0284c7',
-							weight: 2.5,
-							dashArray: '5, 5',
-							fillColor: '#38bdf8',
-							fillOpacity: 0.35
-						},
-						onEachFeature: (feature, layer) => {
-							const props = feature.properties || {};
-							const areaM2 = props.area_meter_square ?? '-';
-							const areaHa = props.area_hectare ?? '-';
-							const idTool = props.id_tool ?? 'A-1';
-							const featureAny = feature as any;
-							const userName = featureAny.user?.name || featureAny.user?.full_name || 'janu';
+				// Render GEO MAPID polygon layers if available
+				if (mode === 'parking' && map && mapidLayersData.length > 0) {
+					const targetMap = map;
+					mapidLayersData.forEach((layerData, idx) => {
+						if (!layerData.features || layerData.features.length === 0) return;
+						const styleConfig = LAYER_STYLES[idx % LAYER_STYLES.length];
 
-							layer.bindPopup(`
-								<div style="font-family: inherit; font-size: 13px; line-height: 1.5; min-width: 190px;">
-									<div style="font-weight: 700; color: #0284c7; font-size: 14px; margin-bottom: 3px;">
-										🗺️ ${mapidLayerData?.layer_name || 'Area Parkir GEO MAPID'}
+						L.geoJSON(layerData as any, {
+							style: {
+								color: styleConfig.color,
+								weight: 2.5,
+								dashArray: '5, 5',
+								fillColor: styleConfig.fillColor,
+								fillOpacity: 0.35
+							},
+							onEachFeature: (feature, layer) => {
+								const props = feature.properties || {};
+								const areaM2 = props.area_meter_square ?? '-';
+								const areaHa = props.area_hectare ?? '-';
+								const idTool = props.id_tool ?? 'A-1';
+								const featureAny = feature as any;
+								const userName = featureAny.user?.name || featureAny.user?.full_name || 'janu';
+
+								layer.bindPopup(`
+									<div style="font-family: inherit; font-size: 13px; line-height: 1.5; min-width: 200px;">
+										<div style="font-weight: 700; color: ${styleConfig.color}; font-size: 14px; margin-bottom: 3px;">
+											🗺️ ${layerData.layer_name || 'Area Parkir GEO MAPID'}
+										</div>
+										<div style="color: #64748b; font-size: 12px; margin-bottom: 6px;">
+											Digitasi oleh <b>${userName}</b> (${idTool})
+										</div>
+										<div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 6px 8px; color: #0f172a; font-size: 12px; margin-bottom: 6px;">
+											Luas Area: <b>${areaM2} m²</b> (${areaHa} ha)
+										</div>
+										<div style="font-size: 11px; color: #94a3b8;">
+											Live Sync: GEO MAPID Geoserver API
+										</div>
 									</div>
-									<div style="color: #64748b; font-size: 12px; margin-bottom: 6px;">
-										Digitasi oleh <b>${userName}</b> (${idTool})
-									</div>
-									<div style="background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 6px; padding: 6px 8px; color: #0369a1; font-size: 12px; margin-bottom: 6px;">
-										Luas Area: <b>${areaM2} m²</b> (${areaHa} ha)
-									</div>
-									<div style="font-size: 11px; color: #94a3b8;">
-										Live Sync: GEO MAPID Geoserver API
-									</div>
-								</div>
-							`);
-						}
-					}).addTo(map);
+								`);
+							}
+						}).addTo(targetMap);
+					});
 				}
 
 				if (mode === 'location') {
@@ -154,12 +167,19 @@
 		aria-label={mode === 'parking' ? 'Parking availability map' : 'Current location map'}
 	></div>
 
-	{#if mode === 'parking' && mapidLayerData}
+	{#if mode === 'parking' && mapidLayersData.length > 0}
 		<div
-			class="pointer-events-none absolute top-3 right-3 z-[1000] flex items-center gap-1.5 rounded-full border border-sky-200 bg-white/95 px-3 py-1 text-xs font-semibold text-sky-900 shadow-sm backdrop-blur-sm"
+			class="pointer-events-none absolute top-3 right-3 z-[1000] flex max-w-[280px] flex-col items-end gap-1.5"
 		>
-			<span class="size-2 animate-pulse rounded-full bg-sky-500"></span>
-			<span>GEO MAPID: {mapidLayerData.layer_name}</span>
+			{#each mapidLayersData as layer, idx}
+				{@const styleConfig = LAYER_STYLES[idx % LAYER_STYLES.length]}
+				<div
+					class="flex items-center gap-1.5 rounded-full border border-border/80 bg-white/95 px-3 py-1 text-xs font-semibold text-slate-800 shadow-sm backdrop-blur-sm"
+				>
+					<span class="size-2 animate-pulse rounded-full" style:background={styleConfig.color}></span>
+					<span class="truncate">GEO MAPID: {layer.layer_name}</span>
+				</div>
+			{/each}
 		</div>
 	{/if}
 </div>
